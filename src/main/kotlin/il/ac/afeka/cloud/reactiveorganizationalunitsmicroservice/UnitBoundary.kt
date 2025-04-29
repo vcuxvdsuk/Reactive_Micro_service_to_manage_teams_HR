@@ -33,7 +33,7 @@ class UnitBoundary(
 
     override fun toString(): String {
         val formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm:ss")
-        val formattedDate = creationDate?.let { it.format(formatter) } ?: ""
+        val formattedDate = creationDate?.format(formatter) ?: ""
         return """{"unitId":"$unitId", "name":"$name", "creationDate":"$formattedDate", "description":"$description"}"""
     }
 
