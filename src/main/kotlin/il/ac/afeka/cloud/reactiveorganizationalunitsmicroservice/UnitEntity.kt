@@ -9,7 +9,9 @@ class UnitEntity(
     @Id var id:String?,
     var name:String?,
     var creationDate: LocalDateTime?,
-    var description:String?
+    var description:String?,
+    //bonus
+    var moreAttributes: MutableSet<String>? = mutableSetOf()
 ) {
 
     constructor():this(null,null,null,null)

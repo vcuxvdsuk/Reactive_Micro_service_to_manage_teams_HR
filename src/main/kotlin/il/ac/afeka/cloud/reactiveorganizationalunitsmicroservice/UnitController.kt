@@ -2,12 +2,14 @@ package il.ac.afeka.cloud.reactiveorganizationalunitsmicroservice
 
 import jakarta.validation.Valid
 import org.springframework.http.MediaType
+import org.springframework.validation.annotation.Validated
 import org.springframework.web.bind.annotation.*
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 
 @RestController
 @RequestMapping(path = ["/units"])
+@Validated
 class UnitController(
     val unitService:UnitService) {
 
@@ -18,7 +20,6 @@ class UnitController(
         /*        POST /units         */
         return unitService.createUnit(unitBoundary)
     }
-
 
     @GetMapping(
         path = ["/{unitId}"],
@@ -31,12 +32,15 @@ class UnitController(
     }
 
     @GetMapping(
-        produces = [MediaType.APPLICATION_JSON_VALUE]
+        produces = [MediaType.TEXT_EVENT_STREAM_VALUE]
     )
-    fun getById(@RequestParam("page") page:Int,
-                @RequestParam("size") size:Int
+    fun getById(@RequestParam("page", defaultValue = "0") page:Int,
+                @RequestParam("size", defaultValue = "10") size:Int
                 ): Flux<UnitBoundary> {
         /*        GET /units?page={page}&size={size}         */
+        if (page<0 || size<1){
+            return Flux.error(InvalidInputException("page must be larger then -1 and size larger then 0"))
+        }
         return unitService.getAllUnits(page,size)
     }
 
@@ -47,7 +51,7 @@ class UnitController(
     )
     fun updateUnit(@RequestBody @Valid unitBoundary:UnitBoundary,
                    @PathVariable("unitId") id:String
-    ): Mono<UnitBoundary> {
+    ): Mono<Void> {
         /*       PUT /units/{unitId}        */
         return unitService.updateUnit(id,unitBoundary)
     }
@@ -61,44 +65,61 @@ class UnitController(
     }
 
 
-
-/*
-
-סעיפי בונוס לניהול עובדות ועובדים ביחידות הארגוניות
-במידה והשירות שלך יממש את כל פעולות הבונוס בהצלחה, ינתן לך בונוס על המימוש:
-
-
-PUT /units/{unitId}/users
-
-פעולה שמשייכת עובדת ליחידה ארגונית בצורה ריאקטיבית.
-בנוסף למזהה של היחידה הארגונית, שמועבר ב-URL, פעולה זו מקבלת גם JSON במבנה של UnitEmployeeBoundary, שמפורט בהמשך, וכולל רק כתובת דואל. אם כבר הגדירו את כתובת הדואל ברשימת העובדות והעובדים של היחידה הארגונית, פעולה זו לא תשנה דבר בשירות.
-במידה ולא קיימת יחידה ארגונית עם מזהה שהוגדר כפרמטר לפעולה, השירות לא יעשה דבר ולא יחזיר שגיאה.
-בכל מקרה, פעולה זו תחזיר Mono ריק
-
-
-GET /units/{unitId}/users?page={page}&size={size}
-
-פעולה שמאפשרת לשלוף בצורה ריאקטיבית, את פרטי העובדות והעובדים שמשויכים ליחידה הארגונית, עם Pagination.
-על השירות שלך למיין את פרטי העובדות והעובדים שהוא שולף לפי כתובת הדואל, שהיא המאפיין היחיד שמוחזר ב-JSON שמתאר כל אחת ואחד מהעובדים, במבנה של UnitEmployeeBoundary, שמפורט בהמשך.
-במידה ולא משויכים כלל עובדות או עובדים ליחידה הארגונית, או במידה וחרגנו מגבולות הנתונים בבסיס הנתונים עם הפרמטרים של ה-Pagination, השירות יחזיר Flux ריק
-לתשומת לבך על השירות שלך להגדיר את הערך שמוחזר מהשירות בפעולה זו, כך שיתאים ל-MIME TYPE שהודגם בכתה
+    //bonus
+    @PutMapping(
+        path = ["/{unitId}/users"],
+        consumes = [MediaType.APPLICATION_JSON_VALUE],
+        produces = [MediaType.APPLICATION_JSON_VALUE]
+    )
+    fun addEmployeeToUnit(@RequestBody @Valid employee:UnitEmployeeBoundary,
+                   @PathVariable("unitId") id:String
+    ): Mono<Void> {
+        /*       PUT /units/{unitId}/users       */
+        return unitService.addEmployeeToUnit(id,employee)
+    }
 
 
-GET /units/Baruch.Ori@s.afeka.ac.il/units?page={page}&size={size}
+    @GetMapping(
+        path = ["/{unitId}/users"],
+        produces = [MediaType.TEXT_EVENT_STREAM_VALUE]
+    )
+    fun getAllEmployeesOfUnit(
+        @PathVariable("unitId") unitId:String,
+        @RequestParam("page", defaultValue = "0") page:Int,
+        @RequestParam("size", defaultValue = "10") size:Int
+    ): Flux<UnitEmployeeBoundary> {
+        /*        GET /units/{unitId}/users?page={page}&size={size}        */
+        if (page<0 || size<1){
+            return Flux.error(InvalidInputException("page must be larger then -1 and size larger then 0"))
+        }
+        return unitService.getAllEmployeesOfUnit(unitId,page,size)
+    }
 
-פעולה שמאפשרת לשלוף בצורה ריאקטיבית, את פרטי היחידות הארגוניות, שעובדת או עובד מסוימים משויכים אליהן, עם Pagination.
-על השירות שלך למין את פרטי היחידות הארגוניות שמוחזרות בפעולה זו, לפי המזהה - unitId - של היחידה הארגונית, ולהחזיר Flux של עצמים מסוג UnitBoundary.
-במידה והעובדת לא משוייכת לאף יחידה ארגונית, או שחרגנו מגבולות הנתונים בבסיס הנתונים עם הפרמטרים של ה-Pagination, השירות יחזיר Flux ריק
-לתשומת לבך עליך להגדיר את הערך שמוחזר מהשירות בפעולה זו, כך שיתאים ל-MIME TYPE שהודגם בכתה
+    @GetMapping(
+        path = ["/{email}/units"],
+        produces = [MediaType.TEXT_EVENT_STREAM_VALUE]
+    )
+    fun getAllUnitsOfEmployee(
+        @PathVariable("email") email:String,
+        @RequestParam("page", defaultValue = "0") page:Int,
+        @RequestParam("size", defaultValue = "10") size:Int
+    ): Flux<UnitBoundary> {
+        /*        GET /units/{email}/units?page={page}&size={size}       */
+        if (page<0 || size<1){
+            return Flux.error(InvalidInputException("page must be larger then -1 and size larger then 0"))
+        }
+        return unitService.getAllUnitsOfEmployee(email,page,size)
+    }
 
 
-DELETE /units/{unitId}/users
-
-פעולה שמוחקת בצורה ריאקטיבית את השיוך של כל העובדות והעובדים ששויכו ליחידה ארגונית מסוימת.
-פעולה זו תחזיר Mono ריק
-
-
- */
-
-
+    @DeleteMapping(
+        path = ["/{unitId}/users"],
+        produces = [MediaType.APPLICATION_JSON_VALUE]
+    )
+    fun deleteAllEmployeesOfUnit(
+        @PathVariable("unitId") unitId:String,
+    ): Mono<Void> {
+        /*       DELETE /units/{unitId}/users       */
+        return unitService.deleteAllEmployeesOfUnit(unitId)
+    }
 }
